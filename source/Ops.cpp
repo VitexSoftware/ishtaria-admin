@@ -246,7 +246,8 @@ void Ops::generateMap(const std::string &name, unsigned long long seed, int face
 Rows Ops::listPlayers() {
     return db_.exec("SELECT id::text, username, "
                     "CASE WHEN banned_at IS NOT NULL THEN 'banned' WHEN died_at IS NOT NULL THEN 'dead' ELSE 'alive' END, "
-                    "gold::text, to_char(created_at, 'YYYY-MM-DD') FROM players ORDER BY lower(username), id");
+                    "coalesce((SELECT quantity FROM player_inventory WHERE player_id = players.id AND item_id = 'gold'), 0)::text, "
+                    "to_char(created_at, 'YYYY-MM-DD') FROM players ORDER BY lower(username), id");
 }
 
 void Ops::renamePlayer(long id, const std::string &name) {
