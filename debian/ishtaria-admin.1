@@ -1,0 +1,17 @@
+.TH ISHTARIA-ADMIN 1 "2026" "ishtaria-admin" "Ishtaria"
+.SH NAME
+ishtaria-admin \- text-mode administration of an Ishtaria world server
+.SH SYNOPSIS
+.B ishtaria-admin
+[\fB\-\-database\-url=\fIURL\fR]
+.SH DESCRIPTION
+Turbo Vision interface for the server operator: save, load, rename, delete and
+export world maps; rename, ban and delete players; manage portals to linked
+worlds; schedule a server shutdown with a notice shown to players.
+.PP
+It talks directly to the PostgreSQL database of ishtaria-server. Run it as the
+service user: \fBsudo -u ishtaria ishtaria-admin\fR.
+.SH ENVIRONMENT
+.TP
+.B DATABASE_URL
+Connection string. Default: postgresql:///ishtaria?host=/var/run/postgresql

@@ -1,0 +1,186 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: cs\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+msgid "~C~lose"
+msgstr "~Z~avřít"
+
+msgid "Select an item first."
+msgstr "Nejprve vyberte položku."
+
+msgid "~A~dministration"
+msgstr "~A~dministrace"
+
+msgid "World ~m~aps..."
+msgstr "~M~apy světa..."
+
+msgid "~P~layers..."
+msgstr "~H~ráči..."
+
+msgid "~L~inked worlds..."
+msgstr "~P~ropojené světy..."
+
+msgid "~S~erver..."
+msgstr "~S~erver..."
+
+msgid "E~x~it"
+msgstr "~K~onec"
+
+msgid "~F2~ Maps"
+msgstr "~F2~ Mapy"
+
+msgid "~F3~ Players"
+msgstr "~F3~ Hráči"
+
+msgid "~F4~ Linked worlds"
+msgstr "~F4~ Propojené světy"
+
+msgid "~F5~ Server"
+msgstr "~F5~ Server"
+
+msgid "~Alt-X~ Exit"
+msgstr "~Alt-X~ Konec"
+
+msgid "World maps"
+msgstr "Mapy světa"
+
+msgid "Active map: none imported"
+msgstr "Aktivní mapa: žádná není importována"
+
+msgid "Active map: seed "
+msgstr "Aktivní mapa: seed "
+
+msgid "~S~ave active"
+msgstr "~U~ložit aktivní"
+
+msgid "Save map"
+msgstr "Uložit mapu"
+
+msgid "Name in the library:"
+msgstr "Název v knihovně:"
+
+msgid "~L~oad"
+msgstr "~N~ačíst"
+
+msgid "Replace the active world map? Restart the server afterwards."
+msgstr "Nahradit aktivní mapu světa? Poté restartujte server."
+
+msgid "Load anyway?"
+msgstr "Přesto načíst?"
+
+msgid "~R~ename"
+msgstr "~P~řejmenovat"
+
+msgid "Rename map"
+msgstr "Přejmenovat mapu"
+
+msgid "New name:"
+msgstr "Nový název:"
+
+msgid "~D~elete"
+msgstr "S~m~azat"
+
+msgid "Delete this saved map?"
+msgstr "Smazat tuto uloženou mapu?"
+
+msgid "~E~xport .pgm"
+msgstr "~E~xport .pgm"
+
+msgid "Export map"
+msgstr "Exportovat mapu"
+
+msgid "Target file:"
+msgstr "Cílový soubor:"
+
+msgid "Players"
+msgstr "Hráči"
+
+msgid "States: alive, dead, banned"
+msgstr "Stavy: alive = živý, dead = mrtvý, banned = zabanovaný"
+
+msgid "Rename player"
+msgstr "Přejmenovat hráče"
+
+msgid "~B~an"
+msgstr "~B~an"
+
+msgid "Ban player"
+msgstr "Zabanovat hráče"
+
+msgid "Reason (optional):"
+msgstr "Důvod (nepovinný):"
+
+msgid "~U~nban"
+msgstr "~O~dbanovat"
+
+msgid "Delete player "
+msgstr "Smazat hráče "
+
+msgid "Linked worlds - portals"
+msgstr "Propojené světy – portály"
+
+msgid "Portals are managed here; the server does not enforce them yet (federation is planned)."
+msgstr "Portály se spravují zde; server je zatím nevynucuje (federace je v plánu)."
+
+msgid "~N~ew"
+msgstr "~N~ový"
+
+msgid "New portal"
+msgstr "Nový portál"
+
+msgid "Name (a-z, 0-9, -):"
+msgstr "Název (a-z, 0-9, -):"
+
+msgid "Peer world DNS name (optional):"
+msgstr "DNS jméno protějšího světa (nepovinné):"
+
+msgid "Position face,x,y:"
+msgstr "Poloha stěna,x,y:"
+
+msgid "Use the format face,x,y."
+msgstr "Použijte formát stěna,x,y."
+
+msgid "~O~pen"
+msgstr "~O~tevřít"
+
+msgid "C~l~ose"
+msgstr "Z~a~vřít"
+
+msgid "D~i~sable"
+msgstr "~Z~akázat"
+
+msgid "Ban this portal (and its peer)?"
+msgstr "Zabanovat tento portál (a jeho protějšek)?"
+
+msgid "Cancel this portal?"
+msgstr "Zrušit tento portál?"
+
+msgid "Server"
+msgstr "Server"
+
+msgid "No shutdown is scheduled."
+msgstr "Žádné vypnutí není naplánováno."
+
+msgid "Shutdown in "
+msgstr "Vypnutí za "
+
+msgid "~S~hut down..."
+msgstr "~V~ypnout..."
+
+msgid "Shut down server"
+msgstr "Vypnout server"
+
+msgid "Delay in seconds (players see a notice):"
+msgstr "Prodleva v sekundách (hráči uvidí upozornění):"
+
+msgid "Message for players (optional):"
+msgstr "Zpráva pro hráče (nepovinná):"
+
+msgid "The server service will stop after the delay. Continue?"
+msgstr "Služba serveru se po prodlevě ukončí. Pokračovat?"
+
+msgid "~C~ancel shutdown"
+msgstr "~Z~rušit vypnutí"
+

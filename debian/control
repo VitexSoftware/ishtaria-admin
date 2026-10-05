@@ -1,0 +1,21 @@
+Source: ishtaria-admin
+Section: games
+Priority: optional
+Maintainer: Vitex Software <info@vitexsoftware.cz>
+Build-Depends: debhelper-compat (= 13), cmake, g++, pkgconf | pkg-config, libtvision-dev, libncurses-dev | libncursesw5-dev, libpq-dev, gettext
+Standards-Version: 4.6.2
+Homepage: https://github.com/VitexSoftware/ishtaria-admin
+Vcs-Git: https://github.com/VitexSoftware/ishtaria-admin.git
+Rules-Requires-Root: no
+
+Package: ishtaria-admin
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: ishtaria-server
+Description: Text-mode administration of an Ishtaria world server
+ Turbo Vision interface for the server operator. Save, load, rename, delete
+ and export world maps, rename, ban and delete players, manage portals to
+ linked worlds and schedule a server shutdown with a notice shown to players.
+ .
+ It works directly on the PostgreSQL database of ishtaria-server; run it as
+ the service user (sudo -u ishtaria ishtaria-admin).
