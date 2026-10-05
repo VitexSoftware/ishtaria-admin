@@ -3,6 +3,8 @@
 #define Uses_TDialog
 #define Uses_TButton
 #define Uses_TStaticText
+#define Uses_TCheckBoxes
+#define Uses_TSItem
 #define Uses_TScrollBar
 #define Uses_TListViewer
 #define Uses_TRect
@@ -22,6 +24,7 @@
 #include "ishtariaadmin/Ops.h"
 #include "ishtariaadmin/i18n.h"
 
+#include <algorithm>
 #include <cctype>
 #include <ctime>
 #include <functional>
@@ -55,6 +58,43 @@ std::optional<std::string> ask(const std::string &title, const std::string &labe
         return std::nullopt;
     }
     return std::string(buffer);
+}
+
+// Lets the operator choose which installed datadisks the generated world takes into
+// account. Nothing is shown (and nothing selected) when no datadisk is installed.
+// Returns nullopt when the dialog was cancelled.
+std::optional<std::vector<std::string>> pickDatadisks(const std::vector<Datadisk> &disks) {
+    if (disks.empty()) {
+        return std::vector<std::string>{};
+    }
+    const int count = static_cast<int>(std::min<std::size_t>(disks.size(), 16));
+    auto *dialog = new TDialog(TRect(0, 0, 66, count + 9), _("Story datadisks"));
+    dialog->options |= ofCentered;
+    TSItem *items = nullptr;
+    for (int i = count - 1; i >= 0; --i) {
+        const std::string label = disks[i].name + " (" + disks[i].id + " " + disks[i].version + ")";
+        items = new TSItem(label.substr(0, 56).c_str(), items);
+    }
+    dialog->insert(new TStaticText(TRect(3, 2, 63, 4), _("Take these datadisks into account when generating the world:")));
+    auto *boxes = new TCheckBoxes(TRect(3, 4, 63, 4 + count), items);
+    dialog->insert(boxes);
+    dialog->insert(new TButton(TRect(14, count + 6, 28, count + 8), _("~O~K"), cmOK, bfDefault));
+    dialog->insert(new TButton(TRect(34, count + 6, 50, count + 8), _("Cancel"), cmCancel, bfNormal));
+    boxes->select();
+    const ushort result = TProgram::deskTop->execView(dialog);
+    std::vector<std::string> chosen;
+    if (result == cmOK) {
+        for (int i = 0; i < count; ++i) {
+            if (boxes->mark(i)) {
+                chosen.push_back(disks[i].id);
+            }
+        }
+    }
+    TObject::destroy(dialog);
+    if (result != cmOK) {
+        return std::nullopt;
+    }
+    return chosen;
 }
 
 // Map names are free text: keep only characters that are safe in a file name.
@@ -226,7 +266,7 @@ private:
                 *cache = ops_.listMaps();
                 std::vector<std::string> out;
                 for (const auto &r : *cache) {
-                    out.push_back(pad(r[1], 28) + pad(r[2], 12) + pad(r[3], 6) + pad(r[4], 14) + r[5]);
+                    out.push_back(pad(r[1], 20) + pad(r[2], 11) + pad(r[3], 5) + pad(r[4], 9) + pad(r[5], 17) + r[6]);
                 }
                 return out;
             },
@@ -248,7 +288,9 @@ private:
                      if (seed->empty() || *end != '\0' || seed->find('-') != std::string::npos) {
                          throw OpError(_("The seed must be a non-negative whole number."));
                      }
-                     ops_.generateMap(*name, seedValue, std::atoi(size->c_str()));
+                     const auto chosen = pickDatadisks(ops_.installedDatadisks());
+                     if (!chosen) return;
+                     ops_.generateMap(*name, seedValue, std::atoi(size->c_str()), *chosen);
                      messageBox(_("The map was generated and saved. Use Load to make it active."),
                                 mfInformation | mfOKButton);
                  }, false},
@@ -322,7 +364,7 @@ private:
         };
         showDialog(new ListDialog(
             _("Linked worlds - portals"),
-            [] { return std::string(_("Portals are managed here; the server does not enforce them yet (federation is planned).")); },
+            [] { return std::string(_("Portals built by players and linked by share links; Open approves a pending link, Close breaks it.")); },
             [this, cache] {
                 *cache = ops_.listPortals();
                 std::vector<std::string> out;

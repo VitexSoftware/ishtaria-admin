@@ -11,9 +11,9 @@ ishtaria-admin --database-url=postgresql:///other?host=/var/run/postgresql
 
 | Menu (key) | Function |
 | --- | --- |
-| World maps (F2) | save the active map into the library, load, rename, delete, export `.pgm` |
+| World maps (F2) | save the active map into the library, generate, load, rename, delete, export `.pgm`; when story datadisks are installed, *Generate map* offers a checkbox per disk to take it into account (stored with the map, applied on *Load*) |
 | Players (F3) | rename, ban/unban (revokes sessions), delete (not possible with a permanent memorial) |
-| Linked worlds (F4) | create, open, close, disable, ban or cancel portals |
+| Linked worlds (F4) | list portals; a link waiting for approval shows as `pending`: *Open* approves it, *Close* breaks it (the other world is told); create, disable, ban or delete portals |
 | Server (F5) | schedule a shutdown with a delay and message, or cancel it |
 
 Requires the server schema from migration `0013_admin.sql`, which `ishtaria-server`

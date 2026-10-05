@@ -3,8 +3,16 @@
 #include "ishtariaadmin/Db.h"
 
 #include <string>
+#include <vector>
 
 namespace ishtariaadmin {
+
+// A story datadisk installed on this host (see ishtaria-server --list-datadisks).
+struct Datadisk {
+    std::string id;
+    std::string version;
+    std::string name;
+};
 
 // Administrative operations on the ishtaria-server database. Every function
 // throws DbError (database problem) or OpError (refused by a safety rule).
@@ -17,7 +25,7 @@ public:
     explicit Ops(Db &db) : db_(db) {}
 
     // --- world maps -------------------------------------------------------
-    // Rows: id, name, seed, face_size, sha256 prefix, created_at
+    // Rows: id, name, seed, face_size, sha256 prefix, created_at, datadisk ids (comma separated)
     Rows listMaps();
     // Row: seed, face_size, sha256 prefix (empty when no map is imported).
     Row activeMap();
@@ -29,7 +37,12 @@ public:
     void exportMap(long id, const std::string &path);
     // Runs ishtaria-worldgen (or $ISHTARIA_WORLDGEN) and stores the result in the
     // library under `name`. The active map is not touched.
-    void generateMap(const std::string &name, unsigned long long seed, int faceSize);
+    // `datadisks` are ids of installed story datadisks the generated world takes into
+    // account; they are checked to be combinable and stored with the map.
+    void generateMap(const std::string &name, unsigned long long seed, int faceSize,
+                     const std::vector<std::string> &datadisks = {});
+    // Story datadisks installed on this host; empty when ishtaria-server is not installed.
+    std::vector<Datadisk> installedDatadisks();
 
     // --- players ----------------------------------------------------------
     // Rows: id, username, state (alive/dead/banned), gold, created_at

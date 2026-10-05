@@ -1,0 +1,7 @@
+id: testdisk
+version: 1.0.0
+name: Minimal example
+requires_ruleset: "1"
+license: CC0-1.0
+attribution: Example disk.
+languages: [en]

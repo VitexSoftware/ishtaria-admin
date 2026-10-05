@@ -36,7 +36,9 @@ bool Ops::validUsername(const std::string &name) {
 
 Rows Ops::listMaps() {
     return db_.exec("SELECT id::text, name, seed, face_size::text, left(sha256, 12), "
-                    "to_char(created_at, 'YYYY-MM-DD HH24:MI') FROM world_maps ORDER BY name");
+                    "to_char(created_at, 'YYYY-MM-DD HH24:MI'), "
+                    "coalesce((SELECT string_agg(e->>'id', ',') FROM jsonb_array_elements(datadisks) e), '') "
+                    "FROM world_maps ORDER BY name");
 }
 
 Row Ops::activeMap() {
@@ -48,8 +50,10 @@ void Ops::saveActiveMap(const std::string &name) {
     if (name.empty() || name.size() > 64) {
         throw OpError("The map name must have 1-64 characters.");
     }
-    db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels) "
-             "SELECT world_id, $1, seed, face_size, sha256, pgm, pixels FROM heightmaps",
+    db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels, datadisks) "
+             "SELECT world_id, $1, seed, face_size, sha256, pgm, pixels, "
+             "coalesce((SELECT jsonb_agg(jsonb_build_object('id', disk_id, 'version', version) ORDER BY position) "
+             "FROM world_datadisks d WHERE d.world_id = heightmaps.world_id), '[]'::jsonb) FROM heightmaps",
              {name});
     if (db_.affected() == 0) {
         throw OpError("No map is imported in the world yet.");
@@ -76,6 +80,15 @@ void Ops::loadMap(long id, bool force) {
             throw OpError("The map no longer exists.");
         }
     }
+    // The places of the previous map's story no longer fit the new terrain: the server
+    // places them again on its next start, using the disks stored with the loaded map.
+    db_.exec("DELETE FROM story_anchors WHERE world_id = (SELECT world_id FROM world_maps WHERE id = $1)", {str(id)});
+    db_.exec("DELETE FROM world_datadisks WHERE world_id = (SELECT world_id FROM world_maps WHERE id = $1)", {str(id)});
+    db_.exec("INSERT INTO world_datadisks (world_id, disk_id, version, position) "
+             "SELECT m.world_id, e.value->>'id', e.value->>'version', (e.ordinality - 1)::int "
+             "FROM world_maps m, jsonb_array_elements(m.datadisks) WITH ORDINALITY e "
+             "WHERE m.id = $1",
+             {str(id)});
     tx.commit();
 }
 
@@ -192,14 +205,122 @@ std::string runGenerator(const std::string &program, const std::vector<std::stri
     return out;
 }
 
+
+std::string serverProgram() {
+    const char *path = std::getenv("ISHTARIA_SERVER");
+    return path != nullptr ? path : "ishtaria-server";
+}
+
+// Runs a program without a shell; returns standard output and error together.
+// `status` is the exit code (127 when the program cannot be started, -1 on a signal).
+std::string captureOutput(const std::string &program, const std::vector<std::string> &args, int &status) {
+    int fds[2];
+    if (::pipe(fds) != 0) {
+        throw OpError("Cannot create a pipe.");
+    }
+    const pid_t pid = ::fork();
+    if (pid < 0) {
+        ::close(fds[0]);
+        ::close(fds[1]);
+        throw OpError("Cannot start " + program + ".");
+    }
+    if (pid == 0) {
+        ::dup2(fds[1], STDOUT_FILENO);
+        ::dup2(fds[1], STDERR_FILENO);
+        ::close(fds[0]);
+        ::close(fds[1]);
+        std::vector<char *> argv;
+        argv.push_back(const_cast<char *>(program.c_str()));
+        for (const auto &a : args) {
+            argv.push_back(const_cast<char *>(a.c_str()));
+        }
+        argv.push_back(nullptr);
+        ::execvp(program.c_str(), argv.data());
+        ::_exit(127);
+    }
+    ::close(fds[1]);
+    std::string out;
+    char buffer[4096];
+    for (;;) {
+        const ssize_t n = ::read(fds[0], buffer, sizeof(buffer));
+        if (n <= 0) {
+            break;
+        }
+        if (out.size() < 65536) {
+            out.append(buffer, static_cast<std::size_t>(n));
+        }
+    }
+    ::close(fds[0]);
+    int raw = 0;
+    ::waitpid(pid, &raw, 0);
+    status = WIFEXITED(raw) ? WEXITSTATUS(raw) : -1;
+    while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) {
+        out.pop_back();
+    }
+    return out;
+}
+
 } // namespace
 
-void Ops::generateMap(const std::string &name, unsigned long long seed, int faceSize) {
+std::vector<Datadisk> Ops::installedDatadisks() {
+    int status = 0;
+    std::string output;
+    try {
+        output = captureOutput(serverProgram(), {"--list-datadisks"}, status);
+    } catch (const OpError &) {
+        return {};
+    }
+    std::vector<Datadisk> disks;
+    if (status != 0) {
+        return disks;
+    }
+    std::size_t start = 0;
+    while (start < output.size()) {
+        std::size_t end = output.find('\n', start);
+        if (end == std::string::npos) {
+            end = output.size();
+        }
+        const std::string line = output.substr(start, end - start);
+        start = end + 1;
+        const auto first = line.find('\t');
+        const auto second = first == std::string::npos ? first : line.find('\t', first + 1);
+        if (second == std::string::npos) {
+            continue; // a diagnostic line, not a disk
+        }
+        disks.push_back({line.substr(0, first), line.substr(first + 1, second - first - 1), line.substr(second + 1)});
+    }
+    return disks;
+}
+
+void Ops::generateMap(const std::string &name, unsigned long long seed, int faceSize,
+                      const std::vector<std::string> &datadisks) {
     if (name.empty() || name.size() > 64) {
         throw OpError("The map name must have 1-64 characters.");
     }
     if (faceSize < 16 || faceSize > 1024) {
         throw OpError("The face size must be 16-1024.");
+    }
+    std::string diskJson = "[]";
+    if (!datadisks.empty()) {
+        const auto installed = installedDatadisks();
+        std::string ids;
+        diskJson = "[";
+        for (const auto &id : datadisks) {
+            const auto found = std::find_if(installed.begin(), installed.end(),
+                                            [&](const Datadisk &d) { return d.id == id; });
+            if (found == installed.end()) {
+                throw OpError("Datadisk " + id + " is not installed.");
+            }
+            ids += (ids.empty() ? "" : ",") + id;
+            diskJson += (diskJson.size() > 1 ? "," : "") + std::string("{\"id\":\"") + found->id +
+                        "\",\"version\":\"" + found->version + "\"}";
+        }
+        diskJson += "]";
+        int status = 0;
+        const std::string output = captureOutput(serverProgram(), {"--check-datadisks", ids}, status);
+        if (status != 0) {
+            throw OpError("These datadisks cannot be combined: " + output);
+        }
     }
     const char *override_path = std::getenv("ISHTARIA_WORLDGEN");
     const std::string pgm = runGenerator(override_path != nullptr ? override_path : "ishtaria-worldgen",
@@ -234,11 +355,11 @@ void Ops::generateMap(const std::string &name, unsigned long long seed, int face
         hex.push_back(digits[c >> 4]);
         hex.push_back(digits[c & 15]);
     }
-    db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels) "
+    db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels, datadisks) "
              "SELECT $1::bigint, $2, $3, $4::int, encode(sha256(decode($5, 'hex')), 'hex'), "
-             "decode($5, 'hex'), substring(decode($5, 'hex') FROM $6::int + 1)",
+             "decode($5, 'hex'), substring(decode($5, 'hex') FROM $6::int + 1), $7::jsonb",
              {std::to_string(worldId()), name, std::to_string(seed), std::to_string(faceSize), hex,
-              std::to_string(pos)});
+              std::to_string(pos), diskJson});
 }
 
 // --- players ------------------------------------------------------------------
@@ -292,7 +413,10 @@ void Ops::deletePlayer(long id) {
 // --- portals ------------------------------------------------------------------
 
 Rows Ops::listPortals() {
-    return db_.exec("SELECT id::text, name, coalesce(peer, ''), state, face::text, x::text, y::text "
+    // A portal whose link waits for the operator is shown as "pending".
+    return db_.exec("SELECT id::text, name, coalesce(peer, ''), "
+                    "CASE WHEN EXISTS (SELECT 1 FROM portal_pacts p WHERE p.portal_id = portals.id AND p.state = 'pending') "
+                    "THEN 'pending' ELSE state END, face::text, x::text, y::text "
                     "FROM portals ORDER BY name");
 }
 
@@ -313,10 +437,35 @@ void Ops::createPortal(const std::string &name, const std::string &peer, int fac
 }
 
 void Ops::setPortalState(long id, const std::string &state) {
+    Transaction tx(db_);
+    const auto pact = db_.exec("SELECT id::text, state, peer_host, peer_portal_id::text FROM portal_pacts "
+                               "WHERE portal_id = $1 AND role = 'builder' FOR UPDATE",
+                               {str(id)});
+    if (!pact.empty()) {
+        const std::string &pactState = pact[0][1];
+        if (state == "open") {
+            // Approving: only a link that was made and waits for the operator may open.
+            if (pactState != "pending" && pactState != "open") {
+                throw OpError("Only a linked portal waiting for approval can be opened.");
+            }
+            db_.exec("UPDATE portal_pacts SET state = 'open', updated_at = now() WHERE id = $1::uuid", {pact[0][0]});
+        } else if (state == "closed" && (pactState == "pending" || pactState == "open")) {
+            // Closing a linked portal breaks the link: the other world is told by the server.
+            db_.exec("INSERT INTO portal_unlinks (world_id, own_portal_id, peer_host, peer_portal_id) "
+                     "SELECT world_id, id, peer_host, peer_portal_id FROM portal_pacts WHERE id = $1::uuid",
+                     {pact[0][0]});
+            db_.exec("UPDATE portal_pacts SET state = 'closed', peer_host = NULL, peer_portal_id = NULL, "
+                     "peer_portal_name = NULL, updated_at = now() WHERE id = $1::uuid",
+                     {pact[0][0]});
+        } else if (state == "closed") {
+            db_.exec("UPDATE portal_pacts SET state = 'closed', updated_at = now() WHERE id = $1::uuid", {pact[0][0]});
+        }
+    }
     db_.exec("UPDATE portals SET state = $2, updated_at = now() WHERE id = $1", {str(id), state});
     if (db_.affected() == 0) {
         throw OpError("The portal no longer exists.");
     }
+    tx.commit();
 }
 
 void Ops::deletePortal(long id) {

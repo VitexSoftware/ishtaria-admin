@@ -1,0 +1,1 @@
+- {id: hut, kind: building, name_key: place.hut, requires: {biome: [grassland]}}

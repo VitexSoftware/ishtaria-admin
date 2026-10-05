@@ -118,8 +118,8 @@ msgstr "Smazat hráče "
 msgid "Linked worlds - portals"
 msgstr "Propojené světy – portály"
 
-msgid "Portals are managed here; the server does not enforce them yet (federation is planned)."
-msgstr "Portály se spravují zde; server je zatím nevynucuje (federace je v plánu)."
+msgid "Portals built by players and linked by share links; Open approves a pending link, Close breaks it."
+msgstr "Portály postavené hráči a propojené sdílecími odkazy; Otevřít schválí čekající spojení, Zavřít ho přeruší."
 
 msgid "~N~ew"
 msgstr "~N~ový"
@@ -202,3 +202,15 @@ msgstr "Seed musí být nezáporné celé číslo."
 
 msgid "The map was generated and saved. Use Load to make it active."
 msgstr "Mapa byla vygenerována a uložena. Aktivujete ji tlačítkem Načíst."
+
+msgid "Story datadisks"
+msgstr "Příběhové datadisky"
+
+msgid "Take these datadisks into account when generating the world:"
+msgstr "Vzít tyto datadisky v úvahu při generování světa:"
+
+msgid "~O~K"
+msgstr "~O~K"
+
+msgid "Cancel"
+msgstr "Zrušit"

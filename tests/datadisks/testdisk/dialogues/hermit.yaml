@@ -1,0 +1,7 @@
+id: hermit
+start: hi
+nodes:
+  hi:
+    text_key: hermit.hi
+    choices:
+      - {text_key: hermit.bye}
