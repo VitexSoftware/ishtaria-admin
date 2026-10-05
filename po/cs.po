@@ -91,9 +91,6 @@ msgstr "~E~xport .pgm"
 msgid "Export map"
 msgstr "Exportovat mapu"
 
-msgid "Target file:"
-msgstr "Cílový soubor:"
-
 msgid "Players"
 msgstr "Hráči"
 
@@ -184,3 +181,6 @@ msgstr "Služba serveru se po prodlevě ukončí. Pokračovat?"
 msgid "~C~ancel shutdown"
 msgstr "~Z~rušit vypnutí"
 
+
+msgid "New target file (never overwritten):"
+msgstr "Nový cílový soubor (nikdy se nepřepisuje):"

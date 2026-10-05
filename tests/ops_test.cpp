@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <unistd.h>
 
 using namespace ishtariaadmin;
 
@@ -50,7 +51,12 @@ int main() {
     const long mapId = std::stol(ops.listMaps()[0][0]);
     ops.renameMap(mapId, "renamed");
     CHECK(ops.listMaps()[0][1] == "renamed");
+    std::remove("ops_test_export.pgm");
     ops.exportMap(mapId, "ops_test_export.pgm");
+    CHECK(throwsOp([&] { ops.exportMap(mapId, "ops_test_export.pgm"); })); // never overwrites
+    CHECK(symlink("ops_test_export.pgm", "ops_test_link.pgm") == 0);
+    CHECK(throwsOp([&] { ops.exportMap(mapId, "ops_test_link.pgm"); })); // never follows a symlink
+    std::remove("ops_test_link.pgm");
     std::ifstream pgm("ops_test_export.pgm", std::ios::binary);
     std::string magic(2, '\0');
     pgm.read(magic.data(), 2);

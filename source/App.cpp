@@ -22,6 +22,7 @@
 #include "ishtariaadmin/Ops.h"
 #include "ishtariaadmin/i18n.h"
 
+#include <cctype>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -53,6 +54,16 @@ std::optional<std::string> ask(const std::string &title, const std::string &labe
         return std::nullopt;
     }
     return std::string(buffer);
+}
+
+// Map names are free text: keep only characters that are safe in a file name.
+std::string safeFileName(std::string name) {
+    for (char &c : name) {
+        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_')) {
+            c = '_';
+        }
+    }
+    return name.empty() ? "map" : name;
 }
 
 std::string pad(const std::string &text, std::size_t width) {
@@ -248,7 +259,7 @@ private:
                      }
                  }},
                 {_("~E~xport .pgm"), [this, cache](long i) {
-                     if (auto path = ask(_("Export map"), _("Target file:"), "/tmp/" + (*cache).at(i)[1] + ".pgm")) {
+                     if (auto path = ask(_("Export map"), _("New target file (never overwritten):"), safeFileName((*cache).at(i)[1]) + ".pgm")) {
                          ops_.exportMap(idOf(*cache, i), *path);
                      }
                  }},

@@ -1,8 +1,11 @@
 #include "ishtariaadmin/Ops.h"
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
 #include <libpq-fe.h>
 #include <regex>
 
@@ -95,15 +98,31 @@ void Ops::exportMap(long id, const std::string &path) {
     if (rows.empty()) {
         throw OpError("The map no longer exists.");
     }
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out) {
-        throw OpError("Cannot write " + path);
+    // Create the file exclusively and never follow a symlink, so an export
+    // cannot be redirected onto another file (the tool runs as the service user).
+    const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0640);
+    if (fd < 0) {
+        throw OpError("Cannot create " + path + ": " + std::strerror(errno) +
+                      " (an existing file is never overwritten)");
     }
     const std::string &hex = rows[0][0];
+    std::string bytes;
+    bytes.reserve(hex.size() / 2);
     for (std::size_t i = 0; i + 1 < hex.size(); i += 2) {
-        out.put(static_cast<char>(std::stoi(hex.substr(i, 2), nullptr, 16)));
+        bytes.push_back(static_cast<char>(std::stoi(hex.substr(i, 2), nullptr, 16)));
     }
-    if (!out) {
+    std::size_t written = 0;
+    while (written < bytes.size()) {
+        const ssize_t n = ::write(fd, bytes.data() + written, bytes.size() - written);
+        if (n < 0) {
+            const int err = errno;
+            ::close(fd);
+            ::unlink(path.c_str());
+            throw OpError(std::string("Cannot write ") + path + ": " + std::strerror(err));
+        }
+        written += static_cast<std::size_t>(n);
+    }
+    if (::close(fd) != 0) {
         throw OpError("Cannot write " + path);
     }
 }
