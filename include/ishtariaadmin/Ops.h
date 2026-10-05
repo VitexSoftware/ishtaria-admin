@@ -27,6 +27,9 @@ public:
     void renameMap(long id, const std::string &name);
     void deleteMap(long id);
     void exportMap(long id, const std::string &path);
+    // Runs ishtaria-worldgen (or $ISHTARIA_WORLDGEN) and stores the result in the
+    // library under `name`. The active map is not touched.
+    void generateMap(const std::string &name, unsigned long long seed, int faceSize);
 
     // --- players ----------------------------------------------------------
     // Rows: id, username, state (alive/dead/banned), gold, created_at

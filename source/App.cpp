@@ -23,6 +23,7 @@
 #include "ishtariaadmin/i18n.h"
 
 #include <cctype>
+#include <ctime>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -235,6 +236,22 @@ private:
                          ops_.saveActiveMap(*name);
                      }
                  }, false},
+                {_("~G~enerate map"), [this](long) {
+                     auto name = ask(_("Generate map"), _("Name in the library:"));
+                     if (!name) return;
+                     auto seed = ask(_("Generate map"), _("Seed (number):"), std::to_string(std::time(nullptr)));
+                     if (!seed) return;
+                     auto size = ask(_("Generate map"), _("Face size in pixels (16-1024):"), "256");
+                     if (!size) return;
+                     char *end = nullptr;
+                     const unsigned long long seedValue = std::strtoull(seed->c_str(), &end, 10);
+                     if (seed->empty() || *end != '\0' || seed->find('-') != std::string::npos) {
+                         throw OpError(_("The seed must be a non-negative whole number."));
+                     }
+                     ops_.generateMap(*name, seedValue, std::atoi(size->c_str()));
+                     messageBox(_("The map was generated and saved. Use Load to make it active."),
+                                mfInformation | mfOKButton);
+                 }, false},
                 {_("~L~oad"), [this, cache](long i) {
                      const long id = idOf(*cache, i);
                      if (!confirm(_("Replace the active world map? Restart the server afterwards."))) {
@@ -378,7 +395,13 @@ int runApp(const std::string &databaseUrl) {
         app.run();
         return 0;
     } catch (const std::exception &e) {
+        const std::string message = e.what();
         std::fprintf(stderr, "ishtaria-admin: %s\n", e.what());
+        if ((message.find("role") != std::string::npos && message.find("does not exist") != std::string::npos) ||
+            message.find("Peer authentication failed") != std::string::npos) {
+            std::fprintf(stderr, "Hint: the default connection uses the database role of the current user. "
+                                 "Run it as the service user: sudo -u ishtaria ishtaria-admin\n");
+        }
         return 1;
     }
 }

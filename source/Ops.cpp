@@ -1,6 +1,9 @@
 #include "ishtariaadmin/Ops.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -8,6 +11,7 @@
 #include <unistd.h>
 #include <libpq-fe.h>
 #include <regex>
+#include <sys/wait.h>
 
 namespace ishtariaadmin {
 
@@ -125,6 +129,116 @@ void Ops::exportMap(long id, const std::string &path) {
     if (::close(fd) != 0) {
         throw OpError("Cannot write " + path);
     }
+}
+
+namespace {
+
+constexpr std::size_t kMaxMapBytes = 16 * 1024 * 1024;
+
+// Runs the generator without a shell and collects its standard output.
+std::string runGenerator(const std::string &program, const std::vector<std::string> &args) {
+    int fds[2];
+    if (::pipe(fds) != 0) {
+        throw OpError("Cannot create a pipe.");
+    }
+    const pid_t pid = ::fork();
+    if (pid < 0) {
+        ::close(fds[0]);
+        ::close(fds[1]);
+        throw OpError("Cannot start the generator.");
+    }
+    if (pid == 0) {
+        ::dup2(fds[1], STDOUT_FILENO);
+        ::close(fds[0]);
+        ::close(fds[1]);
+        std::vector<char *> argv;
+        argv.push_back(const_cast<char *>(program.c_str()));
+        for (const auto &a : args) {
+            argv.push_back(const_cast<char *>(a.c_str()));
+        }
+        argv.push_back(nullptr);
+        ::execvp(program.c_str(), argv.data());
+        ::_exit(127);
+    }
+    ::close(fds[1]);
+    std::string out;
+    char buffer[65536];
+    bool tooBig = false;
+    for (;;) {
+        const ssize_t n = ::read(fds[0], buffer, sizeof(buffer));
+        if (n <= 0) {
+            break;
+        }
+        if (out.size() + static_cast<std::size_t>(n) > kMaxMapBytes) {
+            tooBig = true;
+            break;
+        }
+        out.append(buffer, static_cast<std::size_t>(n));
+    }
+    ::close(fds[0]);
+    if (tooBig) {
+        ::kill(pid, SIGKILL);
+    }
+    int status = 0;
+    ::waitpid(pid, &status, 0);
+    if (tooBig) {
+        throw OpError("The generated map is larger than 16 MiB.");
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        throw OpError(WIFEXITED(status) && WEXITSTATUS(status) == 127
+                          ? program + " is not installed (package ishtaria-worldgen)."
+                          : "The generator failed.");
+    }
+    return out;
+}
+
+} // namespace
+
+void Ops::generateMap(const std::string &name, unsigned long long seed, int faceSize) {
+    if (name.empty() || name.size() > 64) {
+        throw OpError("The map name must have 1-64 characters.");
+    }
+    if (faceSize < 16 || faceSize > 1024) {
+        throw OpError("The face size must be 16-1024.");
+    }
+    const char *override_path = std::getenv("ISHTARIA_WORLDGEN");
+    const std::string pgm = runGenerator(override_path != nullptr ? override_path : "ishtaria-worldgen",
+                                         {std::to_string(seed), std::to_string(faceSize)});
+    // Validate the P5 header exactly as the server expects it before storing anything.
+    std::size_t pos = 0;
+    auto token = [&]() {
+        while (pos < pgm.size() && std::isspace(static_cast<unsigned char>(pgm[pos]))) {
+            ++pos;
+        }
+        const std::size_t start = pos;
+        while (pos < pgm.size() && !std::isspace(static_cast<unsigned char>(pgm[pos]))) {
+            ++pos;
+        }
+        return pgm.substr(start, pos - start);
+    };
+    if (token() != "P5") {
+        throw OpError("The generator did not produce a binary PGM.");
+    }
+    const long w = std::atol(token().c_str());
+    const long h = std::atol(token().c_str());
+    const std::string maxval = token();
+    ++pos; // single whitespace after maxval
+    if (w != 6L * faceSize || h != faceSize || maxval != "255" ||
+        pgm.size() - std::min(pos, pgm.size()) != static_cast<std::size_t>(w * h)) {
+        throw OpError("The generated map has an unexpected format.");
+    }
+    static const char *digits = "0123456789abcdef";
+    std::string hex;
+    hex.reserve(pgm.size() * 2);
+    for (unsigned char c : pgm) {
+        hex.push_back(digits[c >> 4]);
+        hex.push_back(digits[c & 15]);
+    }
+    db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels) "
+             "SELECT $1::bigint, $2, $3, $4::int, encode(sha256(decode($5, 'hex')), 'hex'), "
+             "decode($5, 'hex'), substring(decode($5, 'hex') FROM $6::int + 1)",
+             {std::to_string(worldId()), name, std::to_string(seed), std::to_string(faceSize), hex,
+              std::to_string(pos)});
 }
 
 // --- players ------------------------------------------------------------------

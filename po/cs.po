@@ -184,3 +184,21 @@ msgstr "~Z~rušit vypnutí"
 
 msgid "New target file (never overwritten):"
 msgstr "Nový cílový soubor (nikdy se nepřepisuje):"
+
+msgid "~G~enerate map"
+msgstr "~V~ygenerovat mapu"
+
+msgid "Generate map"
+msgstr "Vygenerovat mapu"
+
+msgid "Seed (number):"
+msgstr "Seed (číslo):"
+
+msgid "Face size in pixels (16-1024):"
+msgstr "Velikost stěny v pixelech (16-1024):"
+
+msgid "The seed must be a non-negative whole number."
+msgstr "Seed musí být nezáporné celé číslo."
+
+msgid "The map was generated and saved. Use Load to make it active."
+msgstr "Mapa byla vygenerována a uložena. Aktivujete ji tlačítkem Načíst."

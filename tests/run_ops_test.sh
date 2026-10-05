@@ -10,4 +10,4 @@ createdb -h "$HOST" "$DB" || exit 77
 trap 'dropdb -h "$HOST" --if-exists "$DB"' EXIT
 URL="postgresql:///$DB?host=$HOST"
 DATABASE_URL="$URL" "$SERVER" "$CONFIG" --import "$PGM" --seed 42 --import-only
-DATABASE_URL="$URL" "$TEST"
+ISHTARIA_WORLDGEN="${ISHTARIA_WORLDGEN:-ishtaria-worldgen}" DATABASE_URL="$URL" "$TEST"

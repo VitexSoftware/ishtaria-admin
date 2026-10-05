@@ -11,7 +11,7 @@ Rules-Requires-Root: no
 Package: ishtaria-admin
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Recommends: ishtaria-server
+Recommends: ishtaria-server, ishtaria-worldgen
 Description: Text-mode administration of an Ishtaria world server
  Turbo Vision interface for the server operator. Save, load, rename, delete
  and export world maps, rename, ban and delete players, manage portals to

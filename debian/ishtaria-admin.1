@@ -10,7 +10,7 @@ export world maps; rename, ban and delete players; manage portals to linked
 worlds; schedule a server shutdown with a notice shown to players.
 .PP
 It talks directly to the PostgreSQL database of ishtaria-server. Run it as the
-service user: \fBsudo -u ishtaria ishtaria-admin\fR.
+service user: \fBsudo -u ishtaria ishtaria-admin\fR. Started as root without an explicit URL it switches to that user itself.
 .SH ENVIRONMENT
 .TP
 .B DATABASE_URL

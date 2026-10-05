@@ -100,7 +100,14 @@ int main() {
     CHECK(ops.scheduledShutdown().empty());
     CHECK(throwsOp([&] { ops.scheduleShutdown(-1, ""); }));
 
+    ops.generateMap("generated", 99, 16);
+    CHECK(ops.listMaps().size() == 2);
+    CHECK(db.exec("SELECT seed || face_size::text FROM world_maps WHERE name = 'generated'")[0][0] == "9916");
+    CHECK(db.exec("SELECT octet_length(pixels) FROM world_maps WHERE name = 'generated'")[0][0] == std::to_string(96 * 16));
+    CHECK(throwsOp([&] { ops.generateMap("tiny", 1, 4); }));
     ops.deleteMap(mapId);
+    CHECK(ops.listMaps().size() == 1);
+    ops.deleteMap(std::stol(ops.listMaps()[0][0]));
     CHECK(ops.listMaps().empty());
 
     if (failures == 0) {
