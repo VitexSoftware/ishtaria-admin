@@ -1,3 +1,9 @@
+ishtaria-admin (0.1.1) unstable; urgency=medium
+
+  * Show the program version in the status line.
+
+ -- Vítězslav Dvořák <cybervitexus@gmail.com>  Tue, 06 Oct 2026 20:52:12 +0200
+
 ishtaria-admin (0.1.0) UNRELEASED; urgency=medium
 
   * Initial release: world maps, players, linked worlds and server shutdown.

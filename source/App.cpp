@@ -245,7 +245,8 @@ public:
                 *new TStatusItem(_("~F3~ Players"), kbF3, cmUsers) +
                 *new TStatusItem(_("~F4~ Linked worlds"), kbF4, cmPortals) +
                 *new TStatusItem(_("~F5~ Server"), kbF5, cmServer) +
-                *new TStatusItem(_("~Alt-X~ Exit"), kbAltX, cmQuit));
+                *new TStatusItem(_("~Alt-X~ Exit"), kbAltX, cmQuit) +
+                *new TStatusItem("v" ISHTARIA_ADMIN_VERSION, kbNoKey, 0));
     }
 
 private:
