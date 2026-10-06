@@ -17,7 +17,41 @@ namespace ishtariaadmin {
 
 namespace {
 std::string str(long v) { return std::to_string(v); }
+std::string toHex(const std::string &bytes) {
+    static const char *digits = "0123456789abcdef";
+    std::string hex;
+    hex.reserve(bytes.size() * 2);
+    for (unsigned char c : bytes) {
+        hex.push_back(digits[c >> 4]);
+        hex.push_back(digits[c & 15]);
+    }
+    return hex;
+}
+
+// Compares "major.minor.patch" versions numerically; unparsable parts count as 0.
+int compareVersions(const std::string &a, const std::string &b) {
+    auto parse = [](const std::string &v) {
+        std::vector<long> parts;
+        std::size_t start = 0;
+        while (start <= v.size()) {
+            const std::size_t dot = v.find('.', start);
+            parts.push_back(std::atol(v.substr(start, dot == std::string::npos ? std::string::npos : dot - start).c_str()));
+            if (dot == std::string::npos) break;
+            start = dot + 1;
+        }
+        parts.resize(3, 0);
+        return parts;
+    };
+    const auto x = parse(a), y = parse(b);
+    return x < y ? -1 : (x == y ? 0 : 1);
+}
+
 } // namespace
+
+bool WorldStatus::updateAvailable() const {
+    return generator == GeneratorState::Changed ||
+           std::any_of(disks.begin(), disks.end(), [](const DiskStatus &d) { return d.newer; });
+}
 
 long Ops::worldId() {
     const auto rows = db_.exec("SELECT id FROM worlds ORDER BY id LIMIT 1");
@@ -348,18 +382,72 @@ void Ops::generateMap(const std::string &name, unsigned long long seed, int face
         pgm.size() - std::min(pos, pgm.size()) != static_cast<std::size_t>(w * h)) {
         throw OpError("The generated map has an unexpected format.");
     }
-    static const char *digits = "0123456789abcdef";
-    std::string hex;
-    hex.reserve(pgm.size() * 2);
-    for (unsigned char c : pgm) {
-        hex.push_back(digits[c >> 4]);
-        hex.push_back(digits[c & 15]);
-    }
+    const std::string hex = toHex(pgm);
     db_.exec("INSERT INTO world_maps (world_id, name, seed, face_size, sha256, pgm, pixels, datadisks) "
              "SELECT $1::bigint, $2, $3, $4::int, encode(sha256(decode($5, 'hex')), 'hex'), "
              "decode($5, 'hex'), substring(decode($5, 'hex') FROM $6::int + 1), $7::jsonb",
              {std::to_string(worldId()), name, std::to_string(seed), std::to_string(faceSize), hex,
               std::to_string(pos), diskJson});
+}
+
+WorldStatus Ops::worldStatus(bool checkGenerator) {
+    WorldStatus status;
+    const auto installed = installedDatadisks();
+    for (const auto &row : db_.exec("SELECT disk_id, version FROM world_datadisks WHERE world_id = $1 ORDER BY position",
+                                    {std::to_string(worldId())})) {
+        DiskStatus disk{row[0], row[0], row[1], "", false};
+        const auto found = std::find_if(installed.begin(), installed.end(), [&](const Datadisk &d) { return d.id == row[0]; });
+        if (found != installed.end()) {
+            disk.name = found->name;
+            disk.installedVersion = found->version;
+            disk.newer = compareVersions(found->version, row[1]) > 0;
+        }
+        status.disks.push_back(disk);
+    }
+    if (!checkGenerator) {
+        status.generatorDetail = "not checked";
+        return status;
+    }
+    const auto map = db_.exec("SELECT seed, face_size::text, sha256 FROM heightmaps LIMIT 1");
+    if (map.empty()) {
+        status.generatorDetail = "no map is imported";
+        return status;
+    }
+    const bool numericSeed = !map[0][0].empty() && map[0][0].find_first_not_of("0123456789") == std::string::npos;
+    if (!numericSeed) {
+        status.generatorDetail = "the map was not generated from a numeric seed";
+        return status;
+    }
+    try {
+        const char *override_path = std::getenv("ISHTARIA_WORLDGEN");
+        const std::string pgm = runGenerator(override_path != nullptr ? override_path : "ishtaria-worldgen",
+                                             {map[0][0], map[0][1]});
+        const auto hash = db_.exec("SELECT encode(sha256(decode($1, 'hex')), 'hex')", {toHex(pgm)});
+        status.generator = hash.at(0).at(0) == map[0][2] ? GeneratorState::Current : GeneratorState::Changed;
+    } catch (const OpError &e) {
+        status.generatorDetail = e.what();
+    }
+    return status;
+}
+
+std::string Ops::prepareWorldUpdate() {
+    const auto map = db_.exec("SELECT seed, face_size::text FROM heightmaps LIMIT 1");
+    if (map.empty()) {
+        throw OpError("No map is imported.");
+    }
+    char *end = nullptr;
+    const unsigned long long seed = std::strtoull(map[0][0].c_str(), &end, 10);
+    if (map[0][0].empty() || *end != '\0') {
+        throw OpError("The active map was not generated from a numeric seed.");
+    }
+    std::vector<std::string> ids;
+    for (const auto &disk : worldStatus(false).disks) {
+        ids.push_back(disk.id);
+    }
+    const auto stamp = db_.exec("SELECT to_char(now(), 'YYYYMMDD-HH24MI')");
+    const std::string name = "update-" + map[0][0] + "-" + stamp.at(0).at(0);
+    generateMap(name, seed, std::atoi(map[0][1].c_str()), ids);
+    return name;
 }
 
 // --- players ------------------------------------------------------------------

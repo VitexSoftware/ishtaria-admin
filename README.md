@@ -15,6 +15,11 @@ ishtaria-admin --database-url=postgresql:///other?host=/var/run/postgresql
 | Players (F3) | rename, ban/unban (revokes sessions), delete (not possible with a permanent memorial) |
 | Linked worlds (F4) | list portals; a link waiting for approval shows as `pending`: *Open* approves it, *Close* breaks it (the other world is told); create, disable, ban or delete portals |
 | Server (F5) | schedule a shutdown with a delay and message, or cancel it |
+| World status (F6) | compares the world's datadisks with the installed ones and re-runs the generator for the active seed; a newer datadisk or a changed generator is announced at start-up, and *Prepare update* saves a map regenerated with the installed versions (then optionally loads it) |
+
+The generator has no recorded version: it counts as changed when the installed `ishtaria-worldgen`
+produces a map with a different SHA-256 for the active seed and face size. Updating means a new
+world (datadisks are pinned per world), so loading the prepared map replaces the active one.
 
 Requires the server schema from migration `0013_admin.sql`, which `ishtaria-server`
 applies at start-up. Loading a map replaces the active heightmap: restart the

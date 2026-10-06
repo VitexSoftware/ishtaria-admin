@@ -148,8 +148,29 @@ int main() {
     CHECK(db.exec("SELECT count(*) FROM story_anchors")[0][0] == "0"); // placed again on the new terrain
     ops.saveActiveMap("saved-with-story");
     CHECK(db.exec("SELECT datadisks->0->>'id' FROM world_maps WHERE name = 'saved-with-story'")[0][0] == "testdisk");
+
+    // world status: datadisk and generator updates are announced
+    auto status = ops.worldStatus();
+    CHECK(status.disks.size() == 1 && status.disks[0].installedVersion == "1.0.0" && !status.disks[0].newer);
+    CHECK(status.generator == GeneratorState::Current && !status.updateAvailable());
+    db.exec("UPDATE world_datadisks SET version = '0.9.0'");
+    status = ops.worldStatus(false);
+    CHECK(status.disks[0].newer && status.updateAvailable());
+    db.exec("UPDATE world_datadisks SET version = '1.0.0'");
+    db.exec("UPDATE heightmaps SET sha256 = repeat('b', 64)");
+    status = ops.worldStatus();
+    CHECK(status.generator == GeneratorState::Changed && status.updateAvailable());
+    const std::string updateName = ops.prepareWorldUpdate();
+    const auto updated = ops.listMaps();
+    const auto update = std::find_if(updated.begin(), updated.end(), [&](const Row &r) { return r[1] == updateName; });
+    CHECK(update != updated.end() && (*update)[2] == "7" && (*update)[3] == "16" && (*update)[6] == "testdisk");
+    if (update != updated.end()) {
+        ops.deleteMap(std::stol((*update)[0]));
+    }
+
     ops.loadMap(mapId, true);
     CHECK(db.exec("SELECT count(*) FROM world_datadisks")[0][0] == "0");
+    CHECK(ops.worldStatus(false).disks.empty());
 
     ops.deleteMap(mapId);
     CHECK(ops.listMaps().size() == 3);

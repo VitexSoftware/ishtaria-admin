@@ -42,6 +42,7 @@ enum : ushort {
     cmUsers,
     cmPortals,
     cmServer,
+    cmWorldStatus,
     cmAction = 1100, // + action index
 };
 
@@ -220,9 +221,24 @@ public:
         case cmUsers: usersDialog(); break;
         case cmPortals: portalsDialog(); break;
         case cmServer: serverDialog(); break;
+        case cmWorldStatus: worldStatusDialog(); break;
         default: return;
         }
         clearEvent(event);
+    }
+
+    // Tells the operator at start-up when the data served to players can be refreshed.
+    void announceUpdates() {
+        try {
+            const WorldStatus status = ops_.worldStatus();
+            if (status.updateAvailable() &&
+                confirm(std::string(_("An update of the world data is available.")) + "\n" + describeUpdates(status) + "\n" +
+                        _("Open the world status now?"))) {
+                worldStatusDialog();
+            }
+        } catch (const std::exception &) {
+            // The status is informational; the dialog reports problems when opened explicitly.
+        }
     }
 
     static TMenuBar *initMenuBar(TRect r) {
@@ -233,6 +249,7 @@ public:
                 *new TMenuItem(_("~P~layers..."), cmUsers, kbF3, hcNoContext, "F3") +
                 *new TMenuItem(_("~L~inked worlds..."), cmPortals, kbF4, hcNoContext, "F4") +
                 *new TMenuItem(_("~S~erver..."), cmServer, kbF5, hcNoContext, "F5") +
+                *new TMenuItem(_("World s~t~atus..."), cmWorldStatus, kbF6, hcNoContext, "F6") +
                 newLine() +
                 *new TMenuItem(_("E~x~it"), cmQuit, kbAltX, hcNoContext, "Alt-X"));
     }
@@ -245,6 +262,7 @@ public:
                 *new TStatusItem(_("~F3~ Players"), kbF3, cmUsers) +
                 *new TStatusItem(_("~F4~ Linked worlds"), kbF4, cmPortals) +
                 *new TStatusItem(_("~F5~ Server"), kbF5, cmServer) +
+                *new TStatusItem(_("~F6~ Status"), kbF6, cmWorldStatus) +
                 *new TStatusItem(_("~Alt-X~ Exit"), kbAltX, cmQuit) +
                 *new TStatusItem("v" ISHTARIA_ADMIN_VERSION, kbNoKey, 0));
     }
@@ -404,6 +422,73 @@ private:
             }));
     }
 
+    static std::string describeUpdates(const WorldStatus &status) {
+        std::string text;
+        for (const auto &d : status.disks) {
+            if (d.newer) {
+                text += std::string(_("Datadisk ")) + d.id + ": " + d.worldVersion + " -> " + d.installedVersion + "\n";
+            }
+        }
+        if (status.generator == GeneratorState::Changed) {
+            text += std::string(_("The installed generator produces a different map for this seed.")) + "\n";
+        }
+        return text;
+    }
+
+    void worldStatusDialog() {
+        auto status = std::make_shared<WorldStatus>();
+        showDialog(new ListDialog(
+            _("World status"),
+            [this, status] {
+                *status = ops_.worldStatus();
+                std::string generator;
+                switch (status->generator) {
+                case GeneratorState::Current: generator = _("Generator: map is reproduced exactly (up to date)"); break;
+                case GeneratorState::Changed: generator = _("Generator: a newer generator gives a different map"); break;
+                case GeneratorState::Unavailable: generator = std::string(_("Generator: not checked (")) + status->generatorDetail + ")"; break;
+                }
+                return generator + "\n" + (status->updateAvailable() ? _("Update available: prepare it below.") : _("Nothing to update."));
+            },
+            [status] {
+                std::vector<std::string> out;
+                for (const auto &d : status->disks) {
+                    const std::string state = d.installedVersion.empty() ? _("not installed")
+                                              : d.newer                  ? std::string(_("NEWER: ")) + d.installedVersion
+                                                                         : _("up to date");
+                    out.push_back(pad(d.id, 18) + pad(d.worldVersion, 10) + state);
+                }
+                if (out.empty()) {
+                    out.push_back(_("The world uses no datadisks."));
+                }
+                return out;
+            },
+            {
+                {_("~P~repare update"), [this, status](long) {
+                     if (!status->updateAvailable()) {
+                         throw OpError(_("Nothing to update."));
+                     }
+                     if (!confirm(_("Generate an updated map with the same seed and the installed datadisks and save it in the library?"))) {
+                         return;
+                     }
+                     const std::string name = ops_.prepareWorldUpdate();
+                     const auto maps = ops_.listMaps();
+                     const auto found = std::find_if(maps.begin(), maps.end(), [&](const Row &r) { return r[1] == name; });
+                     if (found == maps.end() ||
+                         !confirm(std::string(_("Saved as ")) + name + ".\n" + _("Make it the active world now? Players' progress in the current world is lost. Restart the server afterwards."))) {
+                         return;
+                     }
+                     const long id = std::stol((*found)[0]);
+                     try {
+                         ops_.loadMap(id, false);
+                     } catch (const OpError &e) {
+                         if (confirm(std::string(e.what()) + "\n" + _("Load anyway?"))) {
+                             ops_.loadMap(id, true);
+                         }
+                     }
+                 }, false},
+            }));
+    }
+
     void serverDialog() {
         showDialog(new ListDialog(
             _("Server"),
@@ -435,6 +520,7 @@ int runApp(const std::string &databaseUrl) {
         Db db(databaseUrl);
         Ops ops(db);
         AdminApp app(ops);
+        app.announceUpdates();
         app.run();
         return 0;
     } catch (const std::exception &e) {

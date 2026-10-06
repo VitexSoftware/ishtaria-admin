@@ -214,3 +214,63 @@ msgstr "~O~K"
 
 msgid "Cancel"
 msgstr "Zrušit"
+
+msgid "World s~t~atus..."
+msgstr "Stav s~v~ěta..."
+
+msgid "~F6~ Status"
+msgstr "~F6~ Stav"
+
+msgid "An update of the world data is available."
+msgstr "Je dostupná aktualizace dat světa."
+
+msgid "Open the world status now?"
+msgstr "Otevřít stav světa nyní?"
+
+msgid "Datadisk "
+msgstr "Datadisk "
+
+msgid "The installed generator produces a different map for this seed."
+msgstr "Nainstalovaný generátor vytváří pro tento seed jinou mapu."
+
+msgid "World status"
+msgstr "Stav světa"
+
+msgid "Generator: map is reproduced exactly (up to date)"
+msgstr "Generátor: mapa se přesně reprodukuje (aktuální)"
+
+msgid "Generator: a newer generator gives a different map"
+msgstr "Generátor: novější generátor dává jinou mapu"
+
+msgid "Generator: not checked ("
+msgstr "Generátor: nezkontrolován ("
+
+msgid "Update available: prepare it below."
+msgstr "Aktualizace je dostupná: připravte ji tlačítkem níže."
+
+msgid "Nothing to update."
+msgstr "Není co aktualizovat."
+
+msgid "not installed"
+msgstr "není nainstalován"
+
+msgid "NEWER: "
+msgstr "NOVĚJŠÍ: "
+
+msgid "up to date"
+msgstr "aktuální"
+
+msgid "The world uses no datadisks."
+msgstr "Svět nepoužívá žádné datadisky."
+
+msgid "~P~repare update"
+msgstr "~P~řipravit aktualizaci"
+
+msgid "Generate an updated map with the same seed and the installed datadisks and save it in the library?"
+msgstr "Vygenerovat aktualizovanou mapu se stejným seedem a nainstalovanými datadisky a uložit ji do knihovny?"
+
+msgid "Saved as "
+msgstr "Uloženo jako "
+
+msgid "Make it the active world now? Players' progress in the current world is lost. Restart the server afterwards."
+msgstr "Nastavit ji nyní jako aktivní svět? Postup hráčů v současném světě se ztratí. Poté restartujte server."

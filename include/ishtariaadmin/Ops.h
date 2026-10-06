@@ -14,6 +14,28 @@ struct Datadisk {
     std::string name;
 };
 
+// A datadisk of the active world compared with the copy installed on this host.
+struct DiskStatus {
+    std::string id;
+    std::string name;
+    std::string worldVersion;     // version the world was generated with
+    std::string installedVersion; // empty when the disk is no longer installed
+    bool newer = false;           // the installed copy is newer than the world's
+};
+
+enum class GeneratorState {
+    Current,     // regenerating the map reproduces it exactly
+    Changed,     // the installed generator produces a different map for the same seed
+    Unavailable, // not checked (no map, generator missing or failing)
+};
+
+struct WorldStatus {
+    std::vector<DiskStatus> disks;
+    GeneratorState generator = GeneratorState::Unavailable;
+    std::string generatorDetail; // why the generator could not be checked
+    bool updateAvailable() const;
+};
+
 // Administrative operations on the ishtaria-server database. Every function
 // throws DbError (database problem) or OpError (refused by a safety rule).
 struct OpError : std::runtime_error {
@@ -43,6 +65,13 @@ public:
                      const std::vector<std::string> &datadisks = {});
     // Story datadisks installed on this host; empty when ishtaria-server is not installed.
     std::vector<Datadisk> installedDatadisks();
+
+    // Compares the datadisks and the generator of the active world with what is installed.
+    // Regenerating the map for the generator check takes a moment (skip with checkGenerator=false).
+    WorldStatus worldStatus(bool checkGenerator = true);
+    // Generates a map with the active seed and face size and the world's datadisks at their
+    // installed versions, saves it in the library and returns its name. Does not activate it.
+    std::string prepareWorldUpdate();
 
     // --- players ----------------------------------------------------------
     // Rows: id, username, state (alive/dead/banned), gold, created_at
